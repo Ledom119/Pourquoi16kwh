@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulateur photovoltaïque & batterie</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+:root{
+  --green:#c5f90b;
+  --black:#111111;
+  --grey:#f4f5f6;
+  --line:#d9dde1;
+  --blue:#3966f9;
+  --red:#ef4444;
+  --muted:#6b7280;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:Arial,Helvetica,sans-serif;
+  color:var(--black);
+  background:#fff;
+}
+.simulator{
+  width:min(1180px,94%);
+  margin:34px auto;
+}
+h1{
+  font-size:clamp(28px,4vw,46px);
+  line-height:1.05;
+  margin:0 0 10px;
+}
+.intro{
+  max-width:850px;
+  color:#4b5563;
+  font-size:17px;
+  line-height:1.55;
+  margin:0 0 30px;
+}
+.card{
+  border:1px solid var(--line);
+  border-radius:18px;
+  background:#fff;
+  padding:24px;
+  box-shadow:0 8px 28px rgba(0,0,0,.045);
+}
+.form-card{margin-bottom:22px}
+.form-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:18px;
+}
+.field label{
+  display:block;
+  font-weight:700;
+  margin-bottom:8px;
+  font-size:14px;
+}
+.field select,.field input{
+  width:100%;
+  height:48px;
+  border:1px solid #cfd4da;
+  border-radius:10px;
+  padding:0 12px;
+  font-size:16px;
+  background:#fff;
+  color:#111;
+}
+.helper{
+  margin-top:7px;
+  font-size:12px;
+  color:var(--muted);
+}
+.profile-box{
+  margin-top:18px;
+  padding:14px 16px;
+  border-radius:12px;
+  background:var(--grey);
+  font-size:14px;
+  line-height:1.5;
+}
+.results{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:16px;
+  margin:22px 0;
+}
+.kpi{
+  background:#111;
+  color:#fff;
+  border-radius:16px;
+  padding:20px;
+  min-height:110px;
+}
+.kpi .label{
+  font-size:13px;
+  color:#c9cdd2;
+  margin-bottom:10px;
+}
+.kpi .value{
+  font-size:30px;
+  font-weight:800;
+  line-height:1.1;
+}
+.kpi .value span{
+  font-size:16px;
+  font-weight:500;
+}
+.battery-card{
+  margin:0 0 22px;
+}
+.battery-options{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:10px;
+  margin-top:12px;
+}
+.battery-btn{
+  position:relative;
+}
+.battery-btn input{
+  position:absolute;
+  opacity:0;
+  pointer-events:none;
+}
+.battery-btn label{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  height:52px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  cursor:pointer;
+  font-weight:800;
+  transition:.2s ease;
+  user-select:none;
+}
+.battery-btn input:checked + label{
+  background:var(--green);
+  border-color:var(--green);
+}
+.section-title{
+  margin:0 0 18px;
+  font-size:24px;
+}
+.monthly-card{margin-bottom:22px}
+.monthly-grid{
+  display:grid;
+  grid-template-columns:repeat(12,minmax(0,1fr));
+  gap:6px;
+  align-items:end;
+  margin-top:18px;
+}
+.month{
+  text-align:center;
+}
+.month-bar-wrap{
+  height:120px;
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
+  background:#fafafa;
+  border-radius:7px;
+  overflow:hidden;
+}
+.month-bar{
+  width:100%;
+  background:var(--blue);
+  min-height:3px;
+}
+.month-name{
+  font-size:11px;
+  margin-top:6px;
+  color:#4b5563;
+}
+.month-val{
+  font-size:10px;
+  margin-top:3px;
+  font-weight:700;
+}
+.charts{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:22px;
+}
+.chart-card{
+  min-width:0;
+}
+.chart-wrap{
+  height:390px;
+}
+.legend-note{
+  font-size:13px;
+  color:#5f6670;
+  line-height:1.45;
+  margin-top:12px;
+}
+.energy-total{
+  margin-top:16px;
+  border-radius:14px;
+  background:#f5f5f5;
+  padding:16px;
+}
+.energy-total strong{
+  display:block;
+  font-size:30px;
+  margin-top:5px;
+}
+.small{
+  font-size:12px;
+  color:#6b7280;
+  margin-top:4px;
+}
+@media(max-width:850px){
+  .form-grid,.results,.charts{grid-template-columns:1fr}
+  .monthly-grid{gap:3px}
+  .month-val{display:none}
+  .chart-wrap{height:330px}
+}
+@media(max-width:520px){
+  .simulator{width:94%;margin:20px auto}
+  .card{padding:17px}
+  .battery-options{grid-template-columns:repeat(2,1fr)}
+  .monthly-card{overflow:hidden}
+  .month-name{font-size:9px}
+}
+</style>
+</head>
+<body>
+<div class="simulator">
+  <h1>Simulateur photovoltaïque & batterie</h1>
+  <p class="intro">
+    Choisissez votre consommation annuelle et votre installation photovoltaïque.
+    Le simulateur applique automatiquement un profil de consommation résidentiel classique
+    et estime la production, l'autoconsommation directe et le surplus disponible pour une batterie.
+  </p>
+
+  <div class="card form-card">
+    <div class="form-grid">
+      <div class="field">
+        <label for="annualConsumption">Consommation annuelle du ménage</label>
+        <select id="annualConsumption">
+          <option value="2000">2 000 kWh/an</option>
+          <option value="2500">2 500 kWh/an</option>
+          <option value="3000">3 000 kWh/an</option>
+          <option value="3500" selected>3 500 kWh/an</option>
+          <option value="4000">4 000 kWh/an</option>
+          <option value="4500">4 500 kWh/an</option>
+          <option value="5000">5 000 kWh/an</option>
+          <option value="6000">6 000 kWh/an</option>
+          <option value="7000">7 000 kWh/an</option>
+          <option value="8000">8 000 kWh/an</option>
+          <option value="9000">9 000 kWh/an</option>
+          <option value="10000">10 000 kWh/an</option>
+          <option value="12000">12 000 kWh/an</option>
+        </select>
+        <div class="helper">Profil résidentiel normal appliqué automatiquement.</div>
+      </div>
+
+      <div class="field">
+        <label for="panelCount">Nombre de panneaux</label>
+        <input id="panelCount" type="number" min="1" max="100" step="1" value="10">
+      </div>
+
+      <div class="field">
+        <label for="panelPower">Puissance d'un panneau</label>
+        <select id="panelPower">
+          <option value="250">250 Wc</option>
+          <option value="300">300 Wc</option>
+          <option value="350">350 Wc</option>
+          <option value="400">400 Wc</option>
+          <option value="450" selected>450 Wc</option>
+          <option value="500">500 Wc</option>
+          <option value="550">550 Wc</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="profile-box">
+      <strong>Profil utilisé :</strong> ménage résidentiel classique, avec une consommation légèrement plus importante
+      en hiver. La consommation mensuelle est automatiquement répartie sur l'année.
+    </div>
+  </div>
+
+  <div class="results">
+    <div class="kpi">
+      <div class="label">Puissance crête installée</div>
+      <div class="value" id="peakPower">4,50 <span>kWc</span></div>
+    </div>
+    <div class="kpi">
+      <div class="label">Production solaire annuelle estimée</div>
+      <div class="value" id="annualProduction">4 729 <span>kWh/an</span></div>
+    </div>
+    <div class="kpi">
+      <div class="label">Consommation annuelle choisie</div>
+      <div class="value" id="annualConsumptionKpi">3 500 <span>kWh/an</span></div>
+    </div>
+  </div>
+
+  <div class="card monthly-card">
+    <h2 class="section-title">Répartition mensuelle de votre consommation</h2>
+    <div class="monthly-grid" id="monthlyConsumption"></div>
+  </div>
+
+  <div class="card battery-card">
+    <h2 class="section-title">Capacité de la batterie</h2>
+    <div class="battery-options">
+      <div class="battery-btn">
+        <input type="radio" name="battery" id="bat0" value="0">
+        <label for="bat0">0 kWh</label>
+      </div>
+      <div class="battery-btn">
+        <input type="radio" name="battery" id="bat5" value="5" checked>
+        <label for="bat5">5 kWh</label>
+      </div>
+      <div class="battery-btn">
+        <input type="radio" name="battery" id="bat10" value="10">
+        <label for="bat10">10 kWh</label>
+      </div>
+      <div class="battery-btn">
+        <input type="radio" name="battery" id="bat16" value="16">
+        <label for="bat16">16 kWh</label>
+      </div>
+    </div>
+  </div>
+
+  <div class="charts">
+    <div class="card chart-card">
+      <h2 class="section-title">Production et autoconsommation journalières</h2>
+      <div class="chart-wrap"><canvas id="productionChart"></canvas></div>
+      <div class="legend-note">
+        Le bleu représente la production solaire moyenne d'une journée du mois.
+        Le noir représente la part de cette production consommée directement dans l'habitation.
+      </div>
+    </div>
+
+    <div class="card chart-card">
+      <h2 class="section-title">Surplus solaire disponible pour la batterie</h2>
+      <div class="chart-wrap"><canvas id="surplusChart"></canvas></div>
+      <div class="legend-note">
+        Le vert représente le surplus journalier pouvant entrer dans la batterie.
+        Le rouge correspond au surplus qui dépasse sa capacité journalière théorique et qui devra donc être injecté.
+      </div>
+      <div class="energy-total">
+        Énergie solaire totale pouvant être stockée sur une année
+        <strong id="annualStored">0 kWh</strong>
+        <div class="small">Estimation basée sur une recharge quotidienne possible de la capacité sélectionnée.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const months = ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'];
+const days = [31,28,31,30,31,30,31,31,30,31,30,31];
+
+// Même base solaire que le premier simulateur : kWh/mois pour 1 kWc.
+const solarPerKwp = [36.40,53.58,91.13,119.51,127.91,127.43,127.51,115.39,102.07,73.39,46.00,30.66];
+
+// Profil résidentiel imposé : part de la consommation annuelle par mois.
+// Total = 100 %. Plus élevé en hiver, plus faible en été.
+const householdProfile = [10.5,9.5,9.0,8.0,7.0,6.5,6.0,6.0,7.0,8.0,9.5,13.0];
+
+// Part de la production consommée instantanément.
+// Modèle simplifié dépendant du rapport production/consommation de la journée.
+function directSelfConsumption(prodDay, consDay){
+  if(prodDay <= 0 || consDay <= 0) return 0;
+  const ratio = prodDay / consDay;
+
+  // Plus la production solaire est faible par rapport à la consommation,
+  // plus sa part peut être absorbée directement.
+  let rate;
+  if(ratio <= 0.5) rate = 0.65;
+  else if(ratio <= 1) rate = 0.50;
+  else if(ratio <= 1.5) rate = 0.38;
+  else if(ratio <= 2) rate = 0.30;
+  else rate = 0.24;
+
+  return Math.min(prodDay * rate, consDay, prodDay);
+}
+
+Chart.defaults.font.family = 'Arial, Helvetica, sans-serif';
+Chart.defaults.color = '#4b5563';
+
+let productionChart;
+let surplusChart;
+
+function fmt0(n){
+  return Math.round(n).toLocaleString('fr-BE');
+}
+function fmt1(n){
+  return n.toLocaleString('fr-BE',{minimumFractionDigits:1,maximumFractionDigits:1});
+}
+function fmt2(n){
+  return n.toLocaleString('fr-BE',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+
+function getBattery(){
+  return Number(document.querySelector('input[name="battery"]:checked').value);
+}
+
+function renderMonthlyConsumption(monthlyConsumption){
+  const max = Math.max(...monthlyConsumption);
+  const root = document.getElementById('monthlyConsumption');
+  root.innerHTML = '';
+
+  monthlyConsumption.forEach((value,i)=>{
+    const item = document.createElement('div');
+    item.className = 'month';
+    const pct = Math.max(3,(value/max)*100);
+    item.innerHTML = `
+      <div class="month-bar-wrap">
+        <div class="month-bar" style="height:${pct}%"></div>
+      </div>
+      <div class="month-name">${months[i]}</div>
+      <div class="month-val">${fmt0(value)} kWh</div>`;
+    root.appendChild(item);
+  });
+}
+
+function update(){
+  const annualConsumption = Number(document.getElementById('annualConsumption').value);
+  const panelCount = Math.max(1,Number(document.getElementById('panelCount').value)||1);
+  const panelPower = Number(document.getElementById('panelPower').value);
+  const battery = getBattery();
+
+  const peakPower = panelCount * panelPower / 1000;
+  const monthlyProduction = solarPerKwp.map(v => v * peakPower);
+  const annualProduction = monthlyProduction.reduce((a,b)=>a+b,0);
+
+  const monthlyConsumption = householdProfile.map(p => annualConsumption * p / 100);
+  const dailyProduction = monthlyProduction.map((v,i)=>v/days[i]);
+  const dailyConsumption = monthlyConsumption.map((v,i)=>v/days[i]);
+  const dailyDirect = dailyProduction.map((p,i)=>directSelfConsumption(p,dailyConsumption[i]));
+  const dailySurplus = dailyProduction.map((p,i)=>Math.max(0,p-dailyDirect[i]));
+
+  const storableDaily = dailySurplus.map(s=>Math.min(s,battery));
+  const lostDaily = dailySurplus.map(s=>Math.max(0,s-battery));
+  const annualStored = storableDaily.reduce((sum,v,i)=>sum+v*days[i],0);
+
+  document.getElementById('peakPower').innerHTML = `${fmt2(peakPower)} <span>kWc</span>`;
+  document.getElementById('annualProduction').innerHTML = `${fmt0(annualProduction)} <span>kWh/an</span>`;
+  document.getElementById('annualConsumptionKpi').innerHTML = `${fmt0(annualConsumption)} <span>kWh/an</span>`;
+  document.getElementById('annualStored').textContent = `${fmt0(annualStored)} kWh/an`;
+
+  renderMonthlyConsumption(monthlyConsumption);
+
+  if(productionChart) productionChart.destroy();
+  productionChart = new Chart(document.getElementById('productionChart'),{
+    type:'bar',
+    data:{
+      labels:months,
+      datasets:[
+        {
+          label:'Production solaire',
+          data:dailyProduction,
+          backgroundColor:'#3966f9',
+          borderRadius:5,
+          order:2
+        },
+        {
+          label:'Autoconsommation directe',
+          data:dailyDirect,
+          backgroundColor:'#111111',
+          borderRadius:5,
+          order:1
+        }
+      ]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{position:'bottom'},
+        tooltip:{
+          callbacks:{
+            label:(ctx)=>`${ctx.dataset.label}: ${fmt1(ctx.raw)} kWh/j`
+          }
+        }
+      },
+      scales:{
+        x:{grid:{display:false}},
+        y:{
+          beginAtZero:true,
+          title:{display:true,text:'kWh / jour'}
+        }
+      }
+    }
+  });
+
+  if(surplusChart) surplusChart.destroy();
+
+  const batteryLine = {
+    id:'batteryLine',
+    afterDatasetsDraw(chart,args,pluginOptions){
+      if(battery <= 0) return;
+      const {ctx,chartArea:{left,right},scales:{y}} = chart;
+      const yPos = y.getPixelForValue(battery);
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(left,yPos);
+      ctx.lineTo(right,yPos);
+      ctx.lineWidth = 2;
+      ctx.setLineDash([7,5]);
+      ctx.strokeStyle = '#111';
+      ctx.stroke();
+
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#111';
+      ctx.font = 'bold 12px Arial';
+      ctx.textAlign = 'right';
+      ctx.fillText(`Batterie ${battery} kWh`,right-4,yPos-7);
+      ctx.restore();
+    }
+  };
+
+  surplusChart = new Chart(document.getElementById('surplusChart'),{
+    type:'bar',
+    data:{
+      labels:months,
+      datasets:[
+        {
+          label:'Stockable dans la batterie',
+          data:storableDaily,
+          backgroundColor:'#c5f90b',
+          borderRadius:5,
+          stack:'surplus'
+        },
+        {
+          label:'Surplus au-delà de la batterie',
+          data:lostDaily,
+          backgroundColor:'#ef4444',
+          borderRadius:5,
+          stack:'surplus'
+        }
+      ]
+    },
+    plugins:[batteryLine],
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{position:'bottom'},
+        tooltip:{
+          callbacks:{
+            label:(ctx)=>`${ctx.dataset.label}: ${fmt1(ctx.raw)} kWh/j`
+          }
+        }
+      },
+      scales:{
+        x:{stacked:true,grid:{display:false}},
+        y:{
+          stacked:true,
+          beginAtZero:true,
+          title:{display:true,text:'kWh / jour'}
+        }
+      }
+    }
+  });
+}
+
+document.getElementById('annualConsumption').addEventListener('change',update);
+document.getElementById('panelCount').addEventListener('input',update);
+document.getElementById('panelPower').addEventListener('change',update);
+document.querySelectorAll('input[name="battery"]').forEach(el=>el.addEventListener('change',update));
+
+update();
+</script>
+</body>
+</html>
